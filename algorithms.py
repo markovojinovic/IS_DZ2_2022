@@ -14,6 +14,11 @@ class ExampleAlgorithm(Algorithm):
         solution = []
         for move in moves_list:
             solution.append([move[0], move[1], domains])
+
+        #za shvatanje
+        for i in range(len(solution)):
+            print(solution[i])
+
         return solution
 
 
@@ -46,6 +51,7 @@ class ForwardChecking(Algorithm):
         solution = []
         for move in moves_list:
             solution.append([move[0], move[1], domains])
+
         return solution
 
 
