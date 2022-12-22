@@ -1,3 +1,5 @@
+import pprint
+
 class Algorithm:
     def get_algorithm_steps(self, tiles, variables, words):
         pass
@@ -16,8 +18,7 @@ class ExampleAlgorithm(Algorithm):
             solution.append([move[0], move[1], domains])
 
         #za shvatanje
-        for i in range(len(solution)):
-            print(solution[i])
+        pprint.pprint(solution[0])
 
         return solution
 
