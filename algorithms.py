@@ -7,20 +7,6 @@ class Algorithm:
 
 
 
-class ExampleAlgorithm(Algorithm):
-
-    def get_algorithm_steps(self, tiles, variables, words):
-        moves_list = [['0h', 0], ['0v', 2], ['1v', 1], ['2h', 1], ['4h', None],
-                 ['2h', None], ['1v', None], ['0v', 3], ['1v', 1], ['2h', 1],
-                 ['4h', 4], ['5v', 5]]
-        domains = {var: [word for word in words] for var in variables}
-        solution = []
-        for move in moves_list:
-            solution.append([move[0], move[1], domains])
-        return solution
-
-
-
 def check_word(word, curr_var, fields, width):
     num_p = 0
 
@@ -179,28 +165,15 @@ def find_field(variables, num):
 
 
 
-def cross(x11, y11, x21, y21, dir_first, x12, y12, x22, y22, dir_second):       # TODO: prepraviti na svoje
-
-    if dir_first == dir_second:
-        return []
-
-    if dir_first == 'h' and dir_second == 'v':
-        if x11 in range(x12, x22 + 1) and y12 in range(y11, y21 + 1):
-            return [y12 - y11, x11 - x12]
-    else:
-        if y11 in range(y12, y22 + 1) and x12 in range(x11, x21 + 1):
-            return [x12 - x11, y11 - y12]
-    return []
-
-
-
 def get_index_from_dif(ind1s, ind2s, ind1e, ind2e):
     if ind1e != ind1s:
         return abs(ind1e - ind1s)
     else:
         return abs(ind2e - ind2s)
 
-def forward_check_function(level, variables, domains, fields, width, solution, control, tiles):
+
+
+def forward_check_function(level, variables, domains, fields, width, solution, control):
 
     if level == len(variables):
         return True
@@ -215,76 +188,80 @@ def forward_check_function(level, variables, domains, fields, width, solution, c
 
             new_domain = copy.deepcopy(domains)
             new_domain[curr_var] = [word]
-            ret = domain_narrowing(new_domain, curr_var, word, tiles)
 
-            if not ret:
+            empty_domain = domain_pruning(new_domain, curr_var, word, width)
+
+            if empty_domain:
+                if forward_check_function(level + 1, variables, new_domain, fields, width, solution, control):
+                    return True
+
+                solution.append([variable_from_lvl(variables, level + 1), None, domains])
                 delete_word(curr_var, fields, width, variables, control)
-                continue
 
-            if forward_check_function(level + 1, variables, new_domain, fields, width, solution, control, tiles):
-                return True
-
-            solution.append([variable_from_lvl(variables, level + 1), None, domains])
-            delete_word(curr_var, fields, width, variables, control)
+            else:
+                delete_word(curr_var, fields, width, variables, control)
 
     return False
 
 
 
-def domain_narrowing(domains, variable, value, tiles):
-    row_index = int(variable[:-1:]) // len(tiles[0])
-    column_index = int(variable[:-1:]) % len(tiles[0])
-    row_index_end = row_index
-    column_index_end = column_index
-    if variable[-1] == 'h':
-        column_index_end += len(value) - 1
-    else:
-        row_index_end += len(value) - 1
-    for var in domains:
-        if var != variable and len(domains[var]) > 0:
-            domain = domains[var]
-            value_row_index = int(var[:-1:]) // len(tiles[0])
-            value_column_index = int(var[:-1:]) % len(tiles[0])
-            value_row_index_end = value_row_index
-            value_column_index_end = value_column_index
-            if var[-1] == 'h':
-                value_column_index_end += len(domain[0]) - 1
-            else:
-                value_row_index_end += len(domain[0]) - 1
+def domain_pruning(domains, curr_var, word, width):
 
-            # info_list contains, in order: row_index and column_index of intersection,
-            # indices of chars in both words
-            info_list = words_intersecting(variable[-1], var[-1],
-                                           [row_index, column_index, row_index_end, column_index_end],
-                                           [value_row_index, value_column_index, value_row_index_end,
-                                            value_column_index_end])
-            if len(info_list) == 0:
-                continue
-            variable_index, var_index = info_list[2], info_list[3]
-            ind = 0
-            while ind < len(domain):
-                val = domain[ind]
-                if value[variable_index] != val[var_index]:
-                    domain.remove(val)
-                else:
-                    ind += 1
-            if len(domain) == 0:
-                return False
+    ind1_start = int(curr_var[:-1:]) // width
+    ind2_start = int(curr_var[:-1:]) % width
+    ind1_end = ind1_start
+    ind2_end = ind2_start
+    if curr_var[-1] == 'v':
+        ind1_end += len(word) - 1
+    else:
+        ind2_end += len(word) - 1
+
+    for variable in domains:
+        if variable != curr_var and len(domains[variable]) > 0:
+
+            c_ind1_start = int(variable[:-1:]) // width
+            c_ind2_start = int(variable[:-1:]) % width
+            c_ind1_end = c_ind1_start
+            c_ind2_end = c_ind2_start
+            if variable[-1] == 'v':
+                c_ind1_end += len(domains[variable][0]) - 1
+            else:
+                c_ind2_end += len(domains[variable][0]) - 1
+
+            indexes = cross(ind1_start, ind2_start, ind1_end, ind2_end, curr_var[-1],c_ind1_start,
+                        c_ind2_start, c_ind1_end, c_ind2_end, variable[-1])
+
+            if indexes != []:
+                ind2 = indexes[0]
+                ind1 = indexes[1]
+
+                ind = 0
+                while ind < len(domains[variable]):
+
+                    if word[ind2] != domains[variable][ind][ind1]:
+                        domains[variable].remove(domains[variable][ind])
+                    else:
+                        ind += 1
+
+                if len(domains[variable]) == 0:
+                    return False
 
     return True
 
 
-def words_intersecting(var1_orientation: str, var2_orientation: str, coordinates1: list, coordinates2: list):
-    if var1_orientation == var2_orientation:
+def cross(ind1_start, ind2_start, ind1_end, ind2_end, dir1, c_ind1_start, c_ind2_start, c_ind1_end, c_ind2_end, dir2):
+    if dir1 == dir2:
         return []
-    x11, y11, x21, y21 = coordinates1
-    x12, y12, x22, y22 = coordinates2
-    if var1_orientation == 'h' and var2_orientation == 'v':
-        if x11 in range(x12, x22 + 1) and y12 in range(y11, y21 + 1):
-            return [x11, y12, y12 - y11, x11 - x12]
+
+    if dir2 != 'h' and dir1 != 'v':
+        if c_ind2_start in range(ind2_start, ind2_end + 1):
+            if ind1_start in range(c_ind1_start, c_ind1_end + 1):
+                return [c_ind2_start - ind2_start, ind1_start - c_ind1_start]
     else:
-        if y11 in range(y12, y22 + 1) and x12 in range(x11, x21 + 1):
-            return [x12, y11, x12 - x11, y11 - y12]
+        if c_ind1_start in range(ind1_start, ind1_end + 1):
+            if ind2_start in range(c_ind2_start, c_ind2_end + 1):
+                return [c_ind1_start - ind1_start, ind2_start - c_ind2_start]
+
     return []
 
 
@@ -313,20 +290,6 @@ class ForwardChecking(Algorithm):
                     control[i][j] = -1
                     fields[i][j] = -1
 
-        forward_check_function(0, variables, domains, fields, width, solution, control, tiles)
+        forward_check_function(0, variables, domains, fields, width, solution, control)
 
-        return solution
-
-
-
-class ArcConsistency(Algorithm):
-
-    def get_algorithm_steps(self, tiles, variables, words):
-        moves_list = [['0h', 0], ['0v', 2], ['1v', 1], ['2h', 1], ['4h', None],
-                 ['2h', None], ['1v', None], ['0v', 3], ['1v', 1], ['2h', 1],
-                 ['4h', 4], ['5v', 5]]
-        domains = {var: [word for word in words] for var in variables}
-        solution = []
-        for move in moves_list:
-            solution.append([move[0], move[1], domains])
         return solution
