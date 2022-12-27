@@ -44,12 +44,12 @@ def check_word(word, curr_var, fields, width, variables):
         else:
             num += i
 
-        fil = find_field(variables, num)
-        if fil is None:
+        ind1 = int(num / width)
+        ind2 = int(num % width)
+
+        if fields[ind1][ind2] == '' or fields[ind1][ind2] == word[i]:
             num_p += 1
-            continue
-        if fields[fil] == '' or fields[fil] == word[i]:
-            num_p += 1
+
     return num_p == len(word)
 
 
@@ -66,16 +66,14 @@ def write_word(word, curr_var, fields, width, variables, control):
         else:
             num += i
 
-        fil = find_field(variables, num)
-
         ind1 = int(num / width)
         ind2 = int(num % width)
+
         if control[ind1][ind2] != -1:
             control[ind1][ind2] += 1
 
-        if fil is None:
-            continue
-        fields[fil] = word[i]
+        fields[ind1][ind2] = word[i]
+
     return
 
 
@@ -92,16 +90,12 @@ def delete_word(curr_var, fields, width, variables, control):
         else:
             num += i
 
-        fil = find_field(variables, num)
-
         ind1 = int(num / width)
         ind2 = int(num % width)
         if control[ind1][ind2] != -1:
             if control[ind1][ind2] == 1:
                 control[ind1][ind2] = 0
-                if fil is None:
-                    continue
-                fields[fil] = ''
+                fields[ind1][ind2] = ''
             else:
                 control[ind1][ind2] -= 1
 
@@ -160,12 +154,11 @@ class Backtracking(Algorithm):
 
         solution = []
         domains = {}
-        fields = {}
         width = len(tiles[0])
         control = copy.deepcopy(tiles)
+        fields = copy.deepcopy(tiles)
 
         for var in variables:
-            fields[var] = ''
             domains[var] = []
             for word in words:
                 if len(word) == variables[var]:
@@ -175,8 +168,10 @@ class Backtracking(Algorithm):
             for j in range(width):
                 if not tiles[i][j]:
                     control[i][j] = 0
+                    fields[i][j] = ''
                 else:
                     control[i][j] = -1
+                    fields[i][j] = -1
 
         bactrack_search(0, variables, domains, fields, width, solution, control)
 
@@ -229,20 +224,17 @@ def retreve_words(curr_var, domains, deleted_domains):
 
 
 
-class ForwardChecking(Algorithm):                                       # TODO: proveriti da li treba da se prave duboke kopije domena
-                                                                        # koji se dodaju u solutions, kad se prepravljaju domeni
+class ForwardChecking(Algorithm):
+
     def get_algorithm_steps(self, tiles, variables, words):
-        # ===========================================================================================
-        # TODO: Obavezno prepraviti prema gore prepravljenim f-jama
         solution = []
         domains = {}
         fields = {}
-        deleted_domains = {}
         width = len(tiles[0])
         control = copy.deepcopy(tiles)
+
         for var in variables:
             fields[var] = ''
-            deleted_domains[var] = []
             domains[var] = []
             for word in words:
                 if len(word) == variables[var]:
@@ -255,30 +247,8 @@ class ForwardChecking(Algorithm):                                       # TODO: 
                 else:
                     control[i][j] = -1
 
-        for curr_var in variables:
-            backtrack = True
-
-            for word in domains[curr_var]:
-                if check_word(word, curr_var, fields, width, variables):
-                    write_word(word, curr_var, fields, width, variables, control)
-                    kicked = forward_checking_function(fields, curr_var, variables, domains, width)
-                    deleted_domains[curr_var].append(kicked)
-                    solution.append([curr_var, domains[curr_var].index(word), domains])
-                    backtrack = False
-                    break
-
-            if backtrack:
-                retreve_words(curr_var, domains, deleted_domains)
-                delete_word(curr_var, fields, width, variables, control)
-                solution.append([curr_var, None, domains])
-                # backtrack_function(variables, domains, solution, fields, tiles, width, True, deleted_domains, control)
-                for word in domains[curr_var]:
-                    if check_word(word, curr_var, fields, width, variables):
-                        write_word(word, curr_var, fields, width, variables, control)
-                        kicked = forward_checking_function(fields, curr_var, variables, domains, width)
-                        deleted_domains[curr_var].append(kicked)
-                        solution.append([curr_var, domains[curr_var].index(word), domains])
-                        break
+        # TODO: prepraviti i poziv i f-ju
+        bactrack_search(0, variables, domains, fields, width, solution, control)
 
         return solution
 
