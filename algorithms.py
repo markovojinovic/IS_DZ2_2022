@@ -21,17 +21,7 @@ class ExampleAlgorithm(Algorithm):
 
 
 
-def find_field(variables, num):
-    for var in variables:
-        num_s = var.replace('h', '')
-        num_s = num_s.replace('v', '')
-        num_p = int(num_s)
-        if num_p == num:
-            return var
-
-
-
-def check_word(word, curr_var, fields, width, variables):
+def check_word(word, curr_var, fields, width):
     num_p = 0
 
     for i in range(len(word)):
@@ -54,7 +44,7 @@ def check_word(word, curr_var, fields, width, variables):
 
 
 
-def write_word(word, curr_var, fields, width, variables, control):
+def write_word(word, curr_var, fields, width, control):
 
     for i in range(len(word)):
         nums = curr_var
@@ -131,10 +121,10 @@ def bactrack_search(level, variables, domains, fields, width, solution, control)
     curr_var = variable_from_lvl(variables, level)
 
     for word in domains[curr_var]:
-        if check_word(word, curr_var, fields, width, variables):
+        if check_word(word, curr_var, fields, width):
 
             solution.append([curr_var, domains[curr_var].index(word), domains])
-            write_word(word, curr_var, fields, width, variables, control)
+            write_word(word, curr_var, fields, width, control)
 
             new_domain = copy.deepcopy(domains)
             new_domain[curr_var] = [word]
