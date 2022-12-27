@@ -169,48 +169,123 @@ class Backtracking(Algorithm):
 
 
 
-def forward_checking_function(fields, curr_var, variables, domains, width):
-
-    kicked = {}
-
-    for i in range(1, variables[curr_var]):
-        kick = []
-
-        nums = curr_var
-        nums = nums.replace('h', '')
-        nums = nums.replace('v', '')
-        num = int(nums)
-        if curr_var[-1] == 'v':
-            num += i * width
-        else:
-            num += i
-
-        fil = find_field(variables, num)
-        if fil is None:
-            continue
-
-        kicked[fil] = []
-        for word in domains[fil]:       # TODO: zapamti sta se brisalo iz domena i od strane koje promenljive
-            if word[0] != fields[fil]:
-                kick.append(domains[fil].index(word))
-                kicked[fil].append(word)
-
-        for ind in kick:
-            domains[fil].pop(ind)
-
-    return kicked
+def find_field(variables, num):
+    for var in variables:
+        num_s = var.replace('h', '')
+        num_s = num_s.replace('v', '')
+        num_p = int(num_s)
+        if num_p == num:
+            return var
 
 
 
-def retreve_words(curr_var, domains, deleted_domains):
-    arr = deleted_domains[curr_var][-1]
+def cross(x11, y11, x21, y21, dir_first, x12, y12, x22, y22, dir_second):       # TODO: prepraviti na svoje
 
-    for field in arr:
-        for word in arr[field]:
-            domains[field].append(word)
-    deleted_domains[curr_var].pop(-1)
+    if dir_first == dir_second:
+        return []
 
-    return
+    if dir_first == 'h' and dir_second == 'v':
+        if x11 in range(x12, x22 + 1) and y12 in range(y11, y21 + 1):
+            return [y12 - y11, x11 - x12]
+    else:
+        if y11 in range(y12, y22 + 1) and x12 in range(x11, x21 + 1):
+            return [x12 - x11, y11 - y12]
+    return []
+
+
+
+def get_index_from_dif(ind1s, ind2s, ind1e, ind2e):
+    if ind1e != ind1s:
+        return abs(ind1e - ind1s)
+    else:
+        return abs(ind2e - ind2s)
+
+def forward_check_function(level, variables, domains, fields, width, solution, control, tiles):
+
+    if level == len(variables):
+        return True
+
+    curr_var = variable_from_lvl(variables, level)
+
+    for word in domains[curr_var]:
+        if check_word(word, curr_var, fields, width):
+
+            solution.append([curr_var, domains[curr_var].index(word), domains])
+            write_word(word, curr_var, fields, width, control)
+
+            new_domain = copy.deepcopy(domains)
+            new_domain[curr_var] = [word]
+            ret = domain_narrowing(new_domain, curr_var, word, tiles)
+
+            if not ret:
+                delete_word(curr_var, fields, width, variables, control)
+                continue
+
+            if forward_check_function(level + 1, variables, new_domain, fields, width, solution, control, tiles):
+                return True
+
+            solution.append([variable_from_lvl(variables, level + 1), None, domains])
+            delete_word(curr_var, fields, width, variables, control)
+
+    return False
+
+
+
+def domain_narrowing(domains, variable, value, tiles):
+    row_index = int(variable[:-1:]) // len(tiles[0])
+    column_index = int(variable[:-1:]) % len(tiles[0])
+    row_index_end = row_index
+    column_index_end = column_index
+    if variable[-1] == 'h':
+        column_index_end += len(value) - 1
+    else:
+        row_index_end += len(value) - 1
+    for var in domains:
+        if var != variable and len(domains[var]) > 0:
+            domain = domains[var]
+            value_row_index = int(var[:-1:]) // len(tiles[0])
+            value_column_index = int(var[:-1:]) % len(tiles[0])
+            value_row_index_end = value_row_index
+            value_column_index_end = value_column_index
+            if var[-1] == 'h':
+                value_column_index_end += len(domain[0]) - 1
+            else:
+                value_row_index_end += len(domain[0]) - 1
+
+            # info_list contains, in order: row_index and column_index of intersection,
+            # indices of chars in both words
+            info_list = words_intersecting(variable[-1], var[-1],
+                                           [row_index, column_index, row_index_end, column_index_end],
+                                           [value_row_index, value_column_index, value_row_index_end,
+                                            value_column_index_end])
+            if len(info_list) == 0:
+                continue
+            variable_index, var_index = info_list[2], info_list[3]
+            ind = 0
+            while ind < len(domain):
+                val = domain[ind]
+                if value[variable_index] != val[var_index]:
+                    domain.remove(val)
+                else:
+                    ind += 1
+            if len(domain) == 0:
+                return False
+
+    return True
+
+
+def words_intersecting(var1_orientation: str, var2_orientation: str, coordinates1: list, coordinates2: list):
+    if var1_orientation == var2_orientation:
+        return []
+    x11, y11, x21, y21 = coordinates1
+    x12, y12, x22, y22 = coordinates2
+    if var1_orientation == 'h' and var2_orientation == 'v':
+        if x11 in range(x12, x22 + 1) and y12 in range(y11, y21 + 1):
+            return [x11, y12, y12 - y11, x11 - x12]
+    else:
+        if y11 in range(y12, y22 + 1) and x12 in range(x11, x21 + 1):
+            return [x12, y11, x12 - x11, y11 - y12]
+    return []
 
 
 
@@ -219,12 +294,11 @@ class ForwardChecking(Algorithm):
     def get_algorithm_steps(self, tiles, variables, words):
         solution = []
         domains = {}
-        fields = {}
         width = len(tiles[0])
         control = copy.deepcopy(tiles)
+        fields = copy.deepcopy(tiles)
 
         for var in variables:
-            fields[var] = ''
             domains[var] = []
             for word in words:
                 if len(word) == variables[var]:
@@ -234,11 +308,12 @@ class ForwardChecking(Algorithm):
             for j in range(width):
                 if not tiles[i][j]:
                     control[i][j] = 0
+                    fields[i][j] = ''
                 else:
                     control[i][j] = -1
+                    fields[i][j] = -1
 
-        # TODO: prepraviti i poziv i f-ju
-        bactrack_search(0, variables, domains, fields, width, solution, control)
+        forward_check_function(0, variables, domains, fields, width, solution, control, tiles)
 
         return solution
 
